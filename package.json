@@ -1,0 +1,26 @@
+{
+  "name": "contractTest",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "ganache": "ganache --server.port 8545 --chain.chainId 1337 --wallet.totalAccounts 20 --wallet.mnemonic \"test test test test test test test test test test test junk\"",
+    "test:ganache": "wait-port 127.0.0.1:8545 && hardhat test --network ganache",
+    "dev:test": "concurrently -k -s first -n GANC,TEST -c yellow,cyan \"npm:ganache\" \"npm:test:ganache\"",
+    "deploy:ganache:project": "hardhat ignition deploy ./ignition/modules/SafeHarvestProject.ts --network ganache"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.0.3",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@types/node": "^22.18.13",
+    "concurrently": "^9.2.1",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "ganache": "^7.9.2",
+    "hardhat": "^3.0.9",
+    "typescript": "~5.8.0",
+    "viem": "^2.38.5",
+    "wait-port": "^1.1.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  }
+}
