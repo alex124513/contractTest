@@ -16,15 +16,31 @@ describe("TWDT / BankFactory / SafeHarvestNFT (ganache)", async function () {
     assert.equal(bal, 1_000_000n);
   });
 
-  it("factory creates a SafeHarvest project and toggles active state", async function () {
-    const [deployer] = await viem.getWalletClients();
+  it("factory creates a SafeHarvest project and toggles status", async function () {
+    const [deployer, farmer] = await viem.getWalletClients();
     const twdt = await viem.deployContract("TWDTToken", [deployer.account.address]);
     const factory = await viem.deployContract("BankFactory", [twdt.address]);
+
+    // 💰 計算所需資金：10 NFT × 1000 價格 × 3 = 30,000 TWDT
+    const requiredFunds = 10n * 1_000n * 3n;
+    
+    // Mint 資金給 deployer
+    await twdt.write.mint([deployer.account.address, requiredFunds]);
+    
+    // Approve factory 使用資金
+    await twdt.write.approve([factory.address, requiredFunds]);
+    
+    // 存入資金到工廠
+    await factory.write.depositFunds([requiredFunds]);
+    
+    const factoryBalance = await factory.read.getFactoryBalance();
+    assert.equal(factoryBalance, requiredFunds, "工廠餘額應等於所需資金");
 
     // create a project
     await factory.write.createProject([
       "SafeHarvest A",
       "SHA",
+      farmer.account.address,  // farmer address
       10n,       // totalNFTs
       1_000n,    // nftPrice
       10_000n,   // buildCost
@@ -40,13 +56,31 @@ describe("TWDT / BankFactory / SafeHarvestNFT (ganache)", async function () {
 
     const project = await viem.getContractAt("SafeHarvestNFT", projectAddr);
     const total = await project.read.totalNFTs();
-    const active = await project.read.active();
+    const status = await project.read.status();
     assert.equal(total, 10n);
-    assert.equal(active, true);
+    assert.equal(status, 1); // 1 = normal operation
 
-    // toggle active to false via factory
-    await factory.write.setProjectActive([projectAddr, false]);
-    const activeAfter = await project.read.active();
-    assert.equal(activeAfter, false);
+    // ✅ 驗證資金已轉入專案合約
+    const projectBalance = await twdt.read.balanceOf([projectAddr]);
+    assert.equal(projectBalance, requiredFunds, "專案應收到所需資金");
+    
+    // ✅ 驗證工廠餘額已清空
+    const factoryBalanceAfter = await factory.read.getFactoryBalance();
+    assert.equal(factoryBalanceAfter, 0n, "工廠餘額應為零");
+
+    // set status to 2 via factory
+    await factory.write.setProjectStatus([projectAddr, 2]);
+    const statusAfter = await project.read.status();
+    assert.equal(statusAfter, 2);
+
+    // test getProjectData
+    const projectData = await project.read.getProjectData();
+    console.log('\n📊 getProjectData 結果:');
+    console.log(`  狀態: ${projectData[0]}, 擁有者: ${projectData[1]}, 農夫: ${projectData[2]}`);
+    console.log(`  NFT 總數: ${projectData[3]}, 已售: ${projectData[4]}, 價格: ${projectData[5]}`);
+    assert.equal(projectData[0], 2); // 狀態為 2
+    assert.equal(projectData[1].toLowerCase(), deployer.account.address.toLowerCase()); // owner
+    assert.equal(projectData[2].toLowerCase(), farmer.account.address.toLowerCase()); // farmer
+    assert.equal(projectData[3], 10n); // totalNFTs
   });
 });

@@ -22,6 +22,9 @@ describe("TestGuide Scenario 1: 單一投資人年度收益", async function () 
     project: "" as string,
   };
 
+  // 💰 所需資金（用於所有測試）
+  const requiredFunds = 3n * u6(100n) * 3n;  // 3 NFT × 100 TWDT × 3 = 900 TWDT
+
   console.log("📋 初始地址:");
   console.log(`  deployer: ${addresses.deployer}`);
   console.log(`  investorA: ${addresses.investorA}\n`);
@@ -48,9 +51,17 @@ describe("TestGuide Scenario 1: 單一投資人年度收益", async function () 
 
     // 建立專案
     console.log("--- 步驟 4: 建立 SafeHarvest 專案 ---");
+    console.log(`  計算所需資金: ${requiredFunds.toString()}`);
+    
+    // 存入資金到工廠
+    await twdt.write.approve([addresses.factory, requiredFunds]);
+    await factory.write.depositFunds([requiredFunds]);
+    console.log(`  ✓ 存入 ${requiredFunds.toString()} TWDT 到工廠\n`);
+    
     await factory.write.createProject([
       "SafeHarvest Test",
       "SHT",
+      addresses.investorA,  // farmer address (using investorA as farmer)
       3n,             // totalNFTs (修正為 3，符合 TestGuide)
       u6(100n),       // nftPrice: 100 TWDT
       u6(1000n),      // buildCost: 1000 TWDT
@@ -128,7 +139,7 @@ describe("TestGuide Scenario 1: 單一投資人年度收益", async function () 
 
     assert.equal(mintedNFTs, 1n, "應該 mint 1 個 NFT");
     assert.equal(owner1.toLowerCase(), addresses.investorA.toLowerCase(), "NFT 擁有者應該是 investorA");
-    assert.equal(projectBalance, u6(100n), "專案應該收到 100 TWDT");
+    assert.equal(projectBalance, u6(100n) + requiredFunds, "專案應該收到 100 TWDT + 工廠存入資金");
 
     // 為了完成售罄，investorA 再買 2 個 NFT
     console.log("--- 步驟 7b: investorA 再購買 2 枚 NFT (完成售罄) ---");

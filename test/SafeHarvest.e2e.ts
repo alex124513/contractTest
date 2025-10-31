@@ -36,9 +36,18 @@ describe("SafeHarvest E2E 測試", async function () {
 
     // 建立一個小型專案（3 份 NFT，每份 1 TWDT）
     const factory = await viem.deployContract("BankFactory", [twdt.address]);
+    
+    // 💰 計算所需資金：3 NFT × 1 TWDT × 3 = 9 TWDT
+    const requiredFunds = 3n * u6(1n) * 3n;
+    
+    // Approve 並存入資金到工廠
+    await twdt.write.approve([factory.address, requiredFunds]);
+    await factory.write.depositFunds([requiredFunds]);
+    
     await factory.write.createProject([
       "SafeHarvest Mini",
       "SHM",
+      deployer.account.address,  // farmer address
       3n,            // totalNFTs
       u6(1n),        // nftPrice (1 TWDT)
       u6(10n),       // buildCost
@@ -66,9 +75,9 @@ describe("SafeHarvest E2E 測試", async function () {
     const share = await project.read.investorShare();
     assert.equal(share, 50n);
 
-    // 募資款應已入專案合約
+    // 募資款應已入專案合約（工廠存入的 9 TWDT + 銀行購買的 3 TWDT）
     const raisedBefore = await twdt.read.balanceOf([project.address]);
-    assert.equal(raisedBefore, u6(3n));
+    assert.equal(raisedBefore, u6(3n) + requiredFunds, "應包含工廠存入資金");
 
     // 將 3 份 NFT 轉派俾用戶（唔涉及資金）
     await project.write.transferFrom([deployer.account.address, investor.account.address, 1n], { account: deployer.account });
@@ -86,7 +95,7 @@ describe("SafeHarvest E2E 測試", async function () {
     const pendingBefore = await project.read.pendingRewards([investor.account.address]);
     assert.equal(pendingBefore, u6(3n));
     const projBalBefore = await twdt.read.balanceOf([project.address]);
-    assert.equal(projBalBefore, u6(3n));
+    assert.equal(projBalBefore, u6(3n) + requiredFunds, "應包含工廠存入資金");
 
     const balBefore = await twdt.read.balanceOf([investor.account.address]);
     await project.write.claimReward({ account: investor.account });
@@ -96,7 +105,7 @@ describe("SafeHarvest E2E 測試", async function () {
     const pendingAfter = await project.read.pendingRewards([investor.account.address]);
     assert.equal(pendingAfter, 0n);
     const projBalAfter = await twdt.read.balanceOf([project.address]);
-    assert.equal(projBalAfter, 0n);
+    assert.equal(projBalAfter, requiredFunds, "領取後剩餘工廠存入資金");
   });
 
   // 補充場景：鎖定／解鎖會影響買入、領取、提領
@@ -104,12 +113,19 @@ describe("SafeHarvest E2E 測試", async function () {
     const [deployer, investor] = await viem.getWalletClients();
 
     const twdt = await viem.deployContract("TWDTToken", [deployer.account.address]);
+    await twdt.write.mint([deployer.account.address, u6(1000n)]);  // 給 deployer 足夠資金
     await twdt.write.mint([investor.account.address, u6(100n)]);
     const factory = await viem.deployContract("BankFactory", [twdt.address]);
+
+    // 💰 計算所需資金：1 NFT × 10 TWDT × 3 = 30 TWDT
+    const requiredFunds = 1n * u6(10n) * 3n;
+    await twdt.write.approve([factory.address, requiredFunds]);
+    await factory.write.depositFunds([requiredFunds]);
 
     await factory.write.createProject([
       "SafeHarvest L",
       "SHL",
+      deployer.account.address,  // farmer address
       1n,
       u6(10n),      // price 10 TWDT
       u6(10n),
@@ -121,8 +137,8 @@ describe("SafeHarvest E2E 測試", async function () {
     const [addr] = await factory.read.getAllProjects();
     const proj = await viem.getContractAt("SafeHarvestNFT", addr);
 
-    // lock
-    await factory.write.setProjectActive([addr, false]);
+    // lock (set status to 3)
+    await factory.write.setProjectStatus([addr, 3]);
 
     // buy should revert when locked
     await twdt.write.approve([addr, u6(20n)], { account: investor.account });
@@ -134,14 +150,14 @@ describe("SafeHarvest E2E 測試", async function () {
     }
     assert.equal(reverted, true);
 
-    // unlock and buy
-    await factory.write.setProjectActive([addr, true]);
+    // unlock and buy (set status to 1)
+    await factory.write.setProjectStatus([addr, 1]);
     await proj.write.buyNFT([1n], { account: investor.account });
 
-    // now sold-out, lock again blocks claim/withdraw
-    await factory.write.setProjectActive([addr, false]);
+    // now sold-out, lock again blocks claim/withdraw (set status to 3)
+    await factory.write.setProjectStatus([addr, 3]);
 
-    // owner calculator should also be blocked by whenActive
+    // owner calculator should also be blocked by whenOperational
     let revertedCalc = false;
     try {
       await proj.write.SafeHarvestCalculator();

@@ -43,9 +43,17 @@ describe("TestGuide Scenario 2: 多投資人按 NFT 數量分紅", async functio
     console.log(`  ✓ Factory: ${addresses.factory}\n`);
 
     console.log("--- 建立 SafeHarvest 專案 ---");
+    
+    // 💰 計算所需資金：3 NFT × 100 TWDT × 3 = 900 TWDT
+    const requiredFunds = 3n * u6(100n) * 3n;
+    await twdt.write.approve([addresses.factory, requiredFunds]);
+    await factory.write.depositFunds([requiredFunds]);
+    console.log(`  ✓ 存入 ${requiredFunds.toString()} TWDT 到工廠\n`);
+    
     await factory.write.createProject([
       "Multi-Investor Project",
       "MIP",
+      addresses.investorA,  // farmer address (using investorA as farmer)
       3n,             // totalNFTs (修正為 3)
       u6(100n),       // nftPrice: 100 TWDT
       u6(1000n),      // buildCost: 1000 TWDT
