@@ -134,6 +134,20 @@ contract SafeHarvestNFT is ERC721Enumerable, Ownable {
         return lastComputedBuybackPrice;
     }
 
+    // 👤 使用者資產與待領收益快照
+    function getUserProfile(address user) external view returns (
+        uint256 nftCount,
+        uint256 unclaimedRewards,
+        uint256[] memory tokenIds
+    ) {
+        uint256 count = balanceOf(user);
+        uint256[] memory ids = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            ids[i] = tokenOfOwnerByIndex(user, i);
+        }
+        return (count, pendingRewards[user], ids);
+    }
+
     // 📊 查詢專案完整資料
     function getProjectData() external view returns (
         // 基本資訊
