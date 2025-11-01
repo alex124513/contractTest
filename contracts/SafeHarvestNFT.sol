@@ -148,31 +148,19 @@ contract SafeHarvestNFT is ERC721Enumerable, Ownable {
         return (count, pendingRewards[user], ids);
     }
 
-    // 📊 查詢專案完整資料
-    function getProjectData() external view returns (
-        // 基本資訊
-        uint8 currentStatus,
-        address projectOwner,
-        address projectFarmer,
-        // NFT 資訊
-        uint256 nftTotalSupply,
-        uint256 nftMintedCount,
-        uint256 nftPricePerUnit,
-        // 金融參數
-        uint256 projectBuildCost,
-        uint256 projectAnnualIncome,
-        uint256 projectInvestorShare,
-        uint256 projectInterestRate,
-        uint256 projectPremiumRate,
-        // 收益狀態
-        uint256 projectCurrentYear,
-        uint256 projectCumulativePrincipal,
-        uint256 projectRemainingPrincipal,
-        uint256 projectBuybackPrice,
-        bool projectBuybackActive,
-        // 合約資訊
-        address projectPaymentToken,
-        address projectFactory
+    // 第一部份：基本/合約參數
+    function getProjectData1() external view returns (
+        uint8 currentStatus,           // 狀態
+        address projectOwner,           // owner
+        address projectFarmer,          // 農夫
+        uint256 nftTotalSupply,         // NFT總售量
+        uint256 nftMintedCount,         // NFT已鑄造
+        uint256 nftPricePerUnit,        // 單價
+        uint256 projectBuildCost,       // 建設費
+        uint256 projectAnnualIncome,    // 年收益
+        uint256 projectInvestorShare,   // 投資人分潤% 
+        uint256 projectInterestRate,    // 利率% 
+        uint256 projectPremiumRate      // 溢酬%
     ) {
         return (
             status,
@@ -185,7 +173,21 @@ contract SafeHarvestNFT is ERC721Enumerable, Ownable {
             annualIncome,
             investorShare,
             interestRate,
-            premiumRate,
+            premiumRate
+        );
+    }
+
+    // 第二部份：收益狀態、合約其他資訊
+    function getProjectData2() external view returns (
+        uint256 projectCurrentYear,            // 年度
+        uint256 projectCumulativePrincipal,    // 累積本金
+        uint256 projectRemainingPrincipal,     // 尚有本金
+        uint256 projectBuybackPrice,           // 買回價
+        bool projectBuybackActive,             // 買回狀態
+        address projectPaymentToken,           // payment token
+        address projectFactory                 // factory
+    ) {
+        return (
             currentYear,
             cumulativePrincipal,
             remainingPrincipal,
